@@ -17,54 +17,35 @@ if uploaded_file is not None:
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
-    except pd.errors.EmptyDataError:
-        st.error("The uploaded file is empty or not a valid CSV/Excel file.")
-        st.stop()
 
-    st.subheader("Data Preview")
+        # 3. Head & tail preview
+        st.subheader("Data Preview (Head & Tail)")
+        st.write(df.head())
+        st.write(df.tail())
 
-    # 2a. Head
-    st.markdown("**First 5 rows (head):**")
-    st.dataframe(df.head())
+        # 4. Summary statistics
+        st.subheader("Summary Statistics")
+        st.write(df.describe())
 
-    # 2b. Tail
-    st.markdown("**Last 5 rows (tail):**")
-    st.dataframe(df.tail())
+        # 5. Convert date column
+        date_col = df.columns[0]  # assumes first column is date
+        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
 
-    # 3. Summary statistics
-    st.subheader("Summary Statistics (Numeric Columns)")
-    st.dataframe(df.describe(include="number"))
+        # Count admissions per month
+        df["Month"] = df[date_col].dt.to_period("M")
+        monthly_counts = df["Month"].value_counts().sort_index()
 
-    # 4. Let user choose which column is the date
-    st.subheader("Select Date Column")
-    date_col = st.selectbox("Choose the date column for admissions:", df.columns)
+        st.subheader("Admissions per Month")
+        st.write(monthly_counts)
 
-    # Convert chosen column to datetime
-    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+        # Visual chart
+        st.subheader("Monthly Admission Trend Chart")
+        
+        monthly_counts_df = monthly_counts.reset_index()
+        monthly_counts_df["Month"] = monthly_counts_df["Month"].dt.strftime("%b-%Y")
+        monthly_counts_df.columns = ["Month", "count"]
 
-    if df[date_col].isna().all():
-        st.error(
-            f"Could not parse any dates from column '{date_col}'. "
-            "Please choose a different column or check the dataset."
-        )
-        st.stop()
+        st.bar_chart(monthly_counts_df, x="Month", y="count")
 
-    # 4. Count admissions per month
-    # Create Month label like 'Jan-2017'
-    df["Month"] = df[date_col].dt.strftime("%b-%Y")
-
-    monthly_counts = df["Month"].value_counts().sort_index()
-
-    st.subheader("Monthly Admission Counts")
-    st.dataframe(monthly_counts)
-
-    # 5. Monthly Admissions Chart
-    st.subheader("Monthly Admission Trend Chart")
-
-    monthly_counts_df = monthly_counts.reset_index()
-    monthly_counts_df.columns = ["Month", "count"]
-
-    st.bar_chart(monthly_counts_df, x="Month", y="count")
-
-else:
-    st.info("Please upload a dataset to begin.")
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
